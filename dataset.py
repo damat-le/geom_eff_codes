@@ -28,27 +28,28 @@ class MyDataset(Dataset):
 
 class MazeDataset(Dataset):
     
-    img_size = 14
+    img_size = 13
 
-    def __init__(self, imgs):
-        self.imgs = imgs
+    def __init__(self, data):
+        self.imgs = data
         self.transform = Lambda(lambda x: torch.Tensor(x.reshape(*self.get_size(x))))
 
     def __len__(self):
         return self.imgs.shape[0]
     
     def __getitem__(self, idx):
-        img = self.imgs[idx]
+        img = self.imgs[idx, :-2]
+        label = self.imgs[idx, -2:]
         if self.transform:
             img = self.transform(img)
-        return img, torch.zeros(img.shape[0])
+        return img, label
 
     def get_size(self, batch):
         if len(batch.shape) == 1:
             return (1, self.img_size, self.img_size)
         else:
             return (batch.shape[0], 1, self.img_size, self.img_size)
-    
+
     def _check_integrity(self) -> bool:
         return True
 
@@ -189,10 +190,10 @@ class VAEDataset(LightningDataModule):
         # self.test_dataset = MNIST(root='data', train=False, download=True, transform=transforms.ToTensor())
 
 #       ========================= MazeDataset ======================================
-        imgs = pd.read_csv(self.data_dir).values
-        self.train_dataset = MazeDataset(imgs[:6000])
-        self.val_dataset = MazeDataset(imgs[6000:8000])
-        self.test_dataset = MazeDataset(imgs[8000:])
+        imgs = pd.read_csv(self.data_dir, header=None).values
+        self.train_dataset = MazeDataset(imgs[:20000])
+        self.val_dataset = MazeDataset(imgs[20000:25000])
+        self.test_dataset = MazeDataset(imgs[25000:])
 
 
     def train_dataloader(self) -> DataLoader:

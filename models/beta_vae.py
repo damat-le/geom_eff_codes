@@ -85,9 +85,9 @@ class BetaVAE(BaseVAE):
                             nn.ConvTranspose2d(
                                 in_channels=hidden_dims[-1],
                                 out_channels=1,
-                                kernel_size=3,
+                                kernel_size=4,
                                 stride=1,
-                                padding=2,#3,
+                                padding=3,
                                 output_padding=0
                                 ),
                             nn.BatchNorm2d(1),

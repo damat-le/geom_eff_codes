@@ -1,7 +1,7 @@
 model_params:
   name: 'BetaVAE'
   in_channels: 1
-  latent_dim: 1
+  latent_dim: 2
   loss_type: 'B'
   gamma: 10.0
   max_capacity: 25
@@ -9,7 +9,7 @@ model_params:
   hidden_dims: [64, 128, 256, 512]
 
 data_params:
-  data_path: "data/maze_small_gaussian.csv"
+  data_path: "data/mazes_2gf_continuous.csv"
   train_batch_size: 64
   val_batch_size:  32
   test_batch_size: 32
