@@ -33,6 +33,7 @@ tb_logger =  TensorBoardLogger(
     save_dir=config['logging_params']['save_dir'],
     name=config['model_params']['name'],
 )
+tb_logger.log_hyperparams(config)
 
 # For reproducibility
 seed_everything(

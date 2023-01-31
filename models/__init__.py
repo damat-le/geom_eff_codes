@@ -21,7 +21,9 @@ from .miwae import *
 from .vq_vae import *
 from .betatc_vae import *
 from .dip_vae import *
-
+from .beta_vae_MLP import *
+from .beta_vae_MLP_CLF import *
+from .beta_vae_CLF import *
 
 # Aliases
 VAE = VanillaVAE
@@ -29,24 +31,29 @@ GaussianVAE = VanillaVAE
 CVAE = ConditionalVAE
 GumbelVAE = CategoricalVAE
 
-vae_models = {'HVAE':HVAE,
-              'LVAE':LVAE,
-              'IWAE':IWAE,
-              'SWAE':SWAE,
-              'MIWAE':MIWAE,
-              'VQVAE':VQVAE,
-              'DFCVAE':DFCVAE,
-              'DIPVAE':DIPVAE,
-              'BetaVAE':BetaVAE,
-              'InfoVAE':InfoVAE,
-              'WAE_MMD':WAE_MMD,
-              'VampVAE': VampVAE,
-              'GammaVAE':GammaVAE,
-              'MSSIMVAE':MSSIMVAE,
-              'JointVAE':JointVAE,
-              'BetaTCVAE':BetaTCVAE,
-              'FactorVAE':FactorVAE,
-              'LogCoshVAE':LogCoshVAE,
-              'VanillaVAE':VanillaVAE,
-              'ConditionalVAE':ConditionalVAE,
-              'CategoricalVAE':CategoricalVAE}
+vae_models = {
+    'HVAE':HVAE,
+    'LVAE':LVAE,
+    'IWAE':IWAE,
+    'SWAE':SWAE,
+    'MIWAE':MIWAE,
+    'VQVAE':VQVAE,
+    'DFCVAE':DFCVAE,
+    'DIPVAE':DIPVAE,
+    'BetaVAE':BetaVAE,
+    'InfoVAE':InfoVAE,
+    'WAE_MMD':WAE_MMD,
+    'VampVAE': VampVAE,
+    'GammaVAE':GammaVAE,
+    'MSSIMVAE':MSSIMVAE,
+    'JointVAE':JointVAE,
+    'BetaTCVAE':BetaTCVAE,
+    'FactorVAE':FactorVAE,
+    'LogCoshVAE':LogCoshVAE,
+    'VanillaVAE':VanillaVAE,
+    'ConditionalVAE':ConditionalVAE,
+    'CategoricalVAE':CategoricalVAE,
+    'BetaVAE_CLF':BetaVAE_CLF,
+    'BetaVAE_MLP':BetaVAE_MLP,
+    'BetaVAE_MLP_CLF':BetaVAE_MLP_CLF,
+}

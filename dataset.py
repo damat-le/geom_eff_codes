@@ -25,12 +25,24 @@ class MyDataset(Dataset):
     def __getitem__(self, idx):
         pass
 
-
 class MazeDataset(Dataset):
-    
+
+    label2idx = {
+        'll': 0,
+        'cl': 1,
+        'rl': 2,
+        'lc': 3,
+        'cc': 4,
+        'rc': 5,
+        'lr': 6,
+        'cr': 7,
+        'rr': 8,
+    }
+
     img_size = 13
 
-    def __init__(self, data):
+    def __init__(self, data, num_labels=2):
+        self.num_labels = num_labels
         self.imgs = data
         self.transform = Lambda(lambda x: torch.Tensor(x.reshape(*self.get_size(x))))
 
@@ -38,11 +50,11 @@ class MazeDataset(Dataset):
         return self.imgs.shape[0]
     
     def __getitem__(self, idx):
-        img = self.imgs[idx, :-2]
-        label = self.imgs[idx, -2:]
+        img = self.imgs[idx, :-self.num_labels]
+        label = self.imgs[idx, -self.num_labels:]
         if self.transform:
             img = self.transform(img)
-        return img, label
+        return img, torch.tensor(label)
 
     def get_size(self, batch):
         if len(batch.shape) == 1:
@@ -111,6 +123,8 @@ class VAEDataset(LightningDataModule):
     def __init__(
         self,
         data_path: str,
+        num_labels: int, # l'ho inserito io
+        train_val_test_split: List[int], #l'ho inserito io
         train_batch_size: int = 8,
         val_batch_size: int = 8,
         test_batch_size: int = 8,
@@ -122,6 +136,8 @@ class VAEDataset(LightningDataModule):
         super().__init__()
 
         self.data_dir = data_path
+        self.num_labels = num_labels
+        self.train_val_test_split = train_val_test_split
         self.train_batch_size = train_batch_size
         self.val_batch_size = val_batch_size
         self.test_batch_size = test_batch_size
@@ -191,10 +207,13 @@ class VAEDataset(LightningDataModule):
 
 #       ========================= MazeDataset ======================================
         imgs = pd.read_csv(self.data_dir, header=None).values
-        self.train_dataset = MazeDataset(imgs[:20000])
-        self.val_dataset = MazeDataset(imgs[20000:25000])
-        self.test_dataset = MazeDataset(imgs[25000:])
-
+        
+        idx1 = self.train_val_test_split[0]
+        idx2 = self.train_val_test_split[1]
+        # mazes_cont50k_noExit_biasedL90R10_1
+        self.train_dataset = MazeDataset(imgs[:idx1], num_labels=self.num_labels)
+        self.val_dataset = MazeDataset(imgs[idx1:idx2], num_labels=self.num_labels)
+        self.test_dataset = MazeDataset(imgs[idx2:], num_labels=self.num_labels)
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(

@@ -6,7 +6,7 @@ from torch.nn import functional as F
 from .types_ import *
 
 
-class BetaVAE(BaseVAE):
+class BetaVAE_CLF(BaseVAE):
 
     num_iter = 0 # Global static variable to keep track of iterations
 
@@ -20,7 +20,7 @@ class BetaVAE(BaseVAE):
                  Capacity_max_iter: int = 1e5,
                  loss_type:str = 'B',
                  **kwargs) -> None:
-        super(BetaVAE, self).__init__()
+        super(BetaVAE_CLF, self).__init__()
 
         self.latent_dim = latent_dim
         self.beta = beta
@@ -102,6 +102,12 @@ class BetaVAE(BaseVAE):
                             # nn.Tanh()
                             )
 
+        # Build Classifier
+        self.clf = nn.Sequential(
+            nn.Linear(latent_dim, 169),
+            nn.Softmax(dim=1)
+        )
+
     def encode(self, input: Tensor) -> List[Tensor]:
         """
         Encodes the input by passing through the encoder network
@@ -139,35 +145,58 @@ class BetaVAE(BaseVAE):
         eps = torch.randn_like(std)
         return eps * std + mu
 
+    def classify(self, z: Tensor) -> Tensor:
+        preds = self.clf(z)
+        return preds
+    
+    def map_label2idx(self, labels: Tensor) -> Tensor:
+        if len(labels.shape) == 1:
+            return labels[0]*13 + labels[1]
+        else:
+            return labels[:,0]*13 + labels[:,1]
+
     def forward(self, input: Tensor, **kwargs) -> Tensor:
+        labels = kwargs['labels']
         mu, log_var = self.encode(input)
         z = self.reparameterize(mu, log_var)
-        return  [self.decode(z), input, mu, log_var]
+        recons = self.decode(z)
+        preds = self.classify(z)
+        return  [recons, input, mu, log_var, preds, labels]
 
     def loss_function(self,
                       *args,
                       **kwargs) -> dict:
         self.num_iter += 1
-        recons = args[0]
-        input = args[1]
-        mu = args[2]
-        log_var = args[3]
+        recons, input, mu, log_var, preds, labels = args
+
+        # Compute beta-VAE loss
         kld_weight = kwargs['M_N']  # Account for the minibatch samples from the dataset
-
         recons_loss =F.mse_loss(recons, input)
-
         kld_loss = torch.mean(-0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim = 1), dim = 0)
-
         if self.loss_type == 'H': # https://openreview.net/forum?id=Sy2fzU9gl
-            loss = recons_loss + self.beta * kld_weight * kld_loss
+            betavae_loss = recons_loss + self.beta * kld_weight * kld_loss
         elif self.loss_type == 'B': # https://arxiv.org/pdf/1804.03599.pdf
             self.C_max = self.C_max.to(input.device)
             C = torch.clamp(self.C_max/self.C_stop_iter * self.num_iter, 0, self.C_max.data[0])
-            loss = recons_loss + self.gamma * kld_weight* (kld_loss - C).abs()
+            betavae_loss = recons_loss + self.gamma * kld_weight* (kld_loss - C).abs()
         else:
             raise ValueError('Undefined loss type.')
 
-        return {'loss': loss, 'Reconstruction_Loss':recons_loss, 'KLD':kld_loss}
+        # Compute classification loss
+        #print(preds.shape, labels.shape)
+        # the weight of the classification loss is controlled by the parameter clf_w, that depend on self.C_stop_iter
+        clf_w = torch.clamp(
+            torch.Tensor([1/self.C_stop_iter * self.num_iter,]).to(input.device), 0,  
+            1
+        )
+        clf_loss = F.cross_entropy(preds, self.map_label2idx(labels))
+        #clf_loss = F.cross_entropy(preds, labels.squeeze())
+        #clf_loss = clf_w*clf_loss
+
+        # Compute total loss
+        loss = betavae_loss + clf_w*clf_loss
+
+        return {'loss':loss, 'betavae_loss': betavae_loss, 'Reconstruction_Loss':recons_loss, 'KLD':kld_loss, 'clf_loss':clf_loss}
 
     def sample(self,
                num_samples:int,
@@ -194,4 +223,4 @@ class BetaVAE(BaseVAE):
         :return: (Tensor) [B x C x H x W]
         """
 
-        return self.forward(x)[0]
+        return self.forward(x, **kwargs)[0]
