@@ -1,7 +1,8 @@
+import numpy as np
 import torch
+from sklearn.metrics import f1_score
 from models.base import BaseVAE
 from torch import nn
-from torch import bernoulli
 from torch.nn import functional as F
 from .types_ import *
 
@@ -19,8 +20,16 @@ class BetaVAE_CLF(BaseVAE):
                  max_capacity: int = 25,
                  Capacity_max_iter: int = 1e5,
                  loss_type:str = 'B',
+                 clf_task_num:int = 0,
                  **kwargs) -> None:
         super(BetaVAE_CLF, self).__init__()
+
+        clf_tasks_dict = {
+            0 : self.map_label2idx_task0,
+            1 : self.map_label2idx_task1,
+            2 : self.map_label2idx_task2,
+            # 3 : self.map_label2idx_task3,
+        }
 
         self.latent_dim = latent_dim
         self.beta = beta
@@ -28,85 +37,93 @@ class BetaVAE_CLF(BaseVAE):
         self.loss_type = loss_type
         self.C_max = torch.Tensor([max_capacity])
         self.C_stop_iter = Capacity_max_iter
+        self.clf_task_num = clf_task_num
+        self.clf_task = clf_tasks_dict[clf_task_num]
 
-        modules = []
-        if hidden_dims is None:
-            hidden_dims = [32, 64, 128, 256, 512]
+        self.encoder = nn.Sequential(
+            nn.Conv2d(
+                in_channels=in_channels, 
+                out_channels=32,
+                kernel_size=4, 
+                stride=2, 
+                padding=1
+                ),
+            nn.LeakyReLU(),
+            nn.Conv2d(
+                in_channels=32, 
+                out_channels=64,
+                kernel_size=3, 
+                stride=2, 
+                padding=1
+                ),
+            nn.LeakyReLU(),
+            nn.Conv2d(
+                in_channels=64, 
+                out_channels=256,
+                kernel_size=3, 
+                stride=2, 
+                padding=1
+                ),
+            nn.LeakyReLU(),
 
-        # Build Encoder
-        for h_dim in hidden_dims:
-            modules.append(
-                nn.Sequential(
-                    nn.Conv2d(in_channels, out_channels=h_dim,
-                              kernel_size= 3, stride= 2, padding  = 1),
-                    nn.BatchNorm2d(h_dim),
-                    nn.LeakyReLU())
-            )
-            in_channels = h_dim
+        )
+        new_dim = 256*(2**2)
+        self.fc_mu = nn.Linear(new_dim, latent_dim)
+        self.fc_var = nn.Linear(new_dim, latent_dim)
 
-        self.encoder = nn.Sequential(*modules)
-        self.fc_mu = nn.Linear(hidden_dims[-1], latent_dim)
-        self.fc_var = nn.Linear(hidden_dims[-1], latent_dim)
+        self.decoder_input = nn.Linear(latent_dim, new_dim)
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(
+                in_channels=256,
+                out_channels=64,
+                kernel_size=3,
+                stride=2,
+                padding=1,
+                ),
+            nn.LeakyReLU(),
+            nn.ConvTranspose2d(
+                in_channels=64,
+                out_channels=32,
+                kernel_size=3,
+                stride=2,
+                padding=1,
+                output_padding=1,
 
-
-        # Build Decoder
-        modules = []
-
-        self.decoder_input = nn.Linear(latent_dim, hidden_dims[-1] * 4)
-
-        hidden_dims.reverse()
-
-        for i in range(len(hidden_dims) - 1):
-            modules.append(
-                nn.Sequential(
-                    nn.ConvTranspose2d(hidden_dims[i],
-                                       hidden_dims[i + 1],
-                                       kernel_size=3,
-                                       stride = 2,
-                                       padding=1,
-                                       output_padding=1),
-                    nn.BatchNorm2d(hidden_dims[i + 1]),
-                    nn.LeakyReLU())
-            )
-
-
-
-        self.decoder = nn.Sequential(*modules)
-
-        self.final_layer = nn.Sequential(
-                            # nn.ConvTranspose2d(
-                            #     in_channels=hidden_dims[-1],
-                            #     out_channels=hidden_dims[-1],
-                            #     kernel_size=3,
-                            #     stride=2,
-                            #     padding=1,
-                            #     output_padding=1
-                            #     ),
-                            # nn.BatchNorm2d(hidden_dims[-1]),
-                            nn.ConvTranspose2d(
-                                in_channels=hidden_dims[-1],
-                                out_channels=1,
-                                kernel_size=4,
-                                stride=1,
-                                padding=3,
-                                output_padding=0
-                                ),
-                            nn.BatchNorm2d(1),
-                            nn.Sigmoid(),
-                            # nn.Conv2d(
-                            #     hidden_dims[-1], 
-                            #     out_channels= 3,
-                            #     kernel_size= 3, 
-                            #     padding= 1
-                            #     ),
-                            # nn.Tanh()
-                            )
+                ),
+            nn.LeakyReLU(),
+            nn.ConvTranspose2d(
+                in_channels=32,
+                out_channels=in_channels,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+                output_padding=1,
+                ),
+            nn.Sigmoid()
+        )
+        
 
         # Build Classifier
-        self.clf = nn.Sequential(
-            nn.Linear(latent_dim, 169),
-            nn.Softmax(dim=1)
-        )
+        if self.clf_task_num == 0:
+            self.clf = nn.Sequential(
+                nn.Linear(latent_dim, 512),
+                nn.ReLU(),
+                nn.Dropout(0.2),
+                nn.Linear(512, 4096),
+                nn.ReLU(),
+                nn.Dropout(0.3),
+                nn.Linear(4096, 512),
+                nn.ReLU(),
+                nn.Linear(512, 169),
+                nn.Softmax(dim=1)
+            )
+        elif self.clf_task_num == 1:
+            self.clf = nn.Sequential(
+                nn.Linear(latent_dim, 1024),
+                nn.ReLU(),
+                nn.Linear(1024, 1),
+                nn.Sigmoid()
+            )
 
     def encode(self, input: Tensor) -> List[Tensor]:
         """
@@ -116,7 +133,9 @@ class BetaVAE_CLF(BaseVAE):
         :return: (Tensor) List of latent codes
         """
         result = self.encoder(input)
+        #print('ENCODER output', result.shape)
         result = torch.flatten(result, start_dim=1)
+        #print('ENCODER output flattened', result.shape)
         # Split the result into mu and var components
         # of the latent Gaussian distribution
         mu = self.fc_mu(result)
@@ -124,11 +143,17 @@ class BetaVAE_CLF(BaseVAE):
         return [mu, log_var]
 
     def decode(self, z: Tensor) -> Tensor:
+        #print('Z', z.shape)
+        #z = z.view(-1, self.latent_dim, 1, 1)
+        #print('Z reshaped', z.shape)
         result = self.decoder_input(z)
-        result = result.view(-1, 512, 2, 2)
+        #print('DECODER input', result.shape)
+        result = result.view(-1, 256, 2, 2)
         result = self.decoder(result)
         #print('DECODER', result.shape)
-        result = self.final_layer(result)
+        #result = result.view(-1, 1152)
+        #result = self.final_layer(result)
+        #result = result.view(-1, 1, 13, 13)
         #print('FINAL', result.shape)
         #result = bernoulli(result)
         return result
@@ -149,18 +174,38 @@ class BetaVAE_CLF(BaseVAE):
         preds = self.clf(z)
         return preds
     
-    def map_label2idx(self, labels: Tensor) -> Tensor:
+    def map_label2idx_task0(self, labels: Tensor) -> Tensor:
         if len(labels.shape) == 1:
             return labels[0]*13 + labels[1]
         else:
             return labels[:,0]*13 + labels[:,1]
 
+    def map_label2idx_task1(self, labels: Tensor) -> Tensor:
+        device = labels.device
+        labels = labels.cpu()
+        if len(labels.shape) == 1:
+            res = np.where(labels[0]==labels[1],1,0).reshape(-1,1)
+            return torch.tensor(res, device=device, dtype=torch.float)
+        else:
+            res = np.where(labels[:,0]==labels[:,1],1,0).reshape(-1,1)
+            return torch.tensor(res, device=device, dtype=torch.float)
+
+    def map_label2idx_task2(self, labels: Tensor) -> Tensor:
+        device = labels.device
+        labels = labels.cpu()
+        if len(labels.shape) == 1:
+            res = np.where(labels[0]<=labels[1],1,0).reshape(-1,1)
+            return torch.tensor(res, device=device, dtype=torch.float)
+        else:
+            res = np.where(labels[:,0]<=labels[:,1],1,0).reshape(-1,1)
+            return torch.tensor(res, device=device, dtype=torch.float)
+
     def forward(self, input: Tensor, **kwargs) -> Tensor:
         labels = kwargs['labels']
         mu, log_var = self.encode(input)
         z = self.reparameterize(mu, log_var)
-        recons = self.decode(z)
         preds = self.classify(z)
+        recons = self.decode(z)
         return  [recons, input, mu, log_var, preds, labels]
 
     def loss_function(self,
@@ -178,6 +223,8 @@ class BetaVAE_CLF(BaseVAE):
         elif self.loss_type == 'B': # https://arxiv.org/pdf/1804.03599.pdf
             self.C_max = self.C_max.to(input.device)
             C = torch.clamp(self.C_max/self.C_stop_iter * self.num_iter, 0, self.C_max.data[0])
+            if self.num_iter < 1500:
+                C = C/4
             betavae_loss = recons_loss + self.gamma * kld_weight* (kld_loss - C).abs()
         else:
             raise ValueError('Undefined loss type.')
@@ -185,18 +232,36 @@ class BetaVAE_CLF(BaseVAE):
         # Compute classification loss
         #print(preds.shape, labels.shape)
         # the weight of the classification loss is controlled by the parameter clf_w, that depend on self.C_stop_iter
-        clf_w = torch.clamp(
-            torch.Tensor([1/self.C_stop_iter * self.num_iter,]).to(input.device), 0,  
-            1
-        )
-        clf_loss = F.cross_entropy(preds, self.map_label2idx(labels))
-        #clf_loss = F.cross_entropy(preds, labels.squeeze())
-        #clf_loss = clf_w*clf_loss
+        
+        # if self.num_iter > 4000:
+        #     # clf_w = torch.clamp(
+        #     #     torch.Tensor([2e-3 * (self.num_iter-4000),]).to(input.device), 0,  
+        #     #     100
+        #     # )
+        #     clf_w = 1
+        # else:
+        #     clf_w = 0
+
+        true_labels = self.clf_task(labels)
+        if self.clf_task_num == 0:
+            clf_loss = 2e-2 * F.cross_entropy(preds, true_labels)
+        elif self.clf_task_num == 1 or self.clf_task_num == 2:
+            if self.num_iter < 2000:
+                clf_w = 0
+            else:
+                clf_w = 1
+            clf_loss = clf_w * F.binary_cross_entropy(preds, true_labels)
+            #clf_loss = clf_w * clf_loss
+    
+
+        ##clf_loss = F.cross_entropy(preds, labels.squeeze())
 
         # Compute total loss
-        loss = betavae_loss + clf_w*clf_loss
+        pred_labels =  np.where(preds.cpu()>=.5, 1, 0)
+        f1 = f1_score(true_labels.cpu(), pred_labels)
+        loss = betavae_loss + clf_loss
 
-        return {'loss':loss, 'betavae_loss': betavae_loss, 'Reconstruction_Loss':recons_loss, 'KLD':kld_loss, 'clf_loss':clf_loss}
+        return {'loss':loss, 'betavae_loss': betavae_loss, 'Reconstruction_Loss':recons_loss, 'KLD':kld_loss, 'clf_loss':clf_loss, 'f1_score': f1}
 
     def sample(self,
                num_samples:int,

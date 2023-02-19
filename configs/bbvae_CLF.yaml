@@ -3,11 +3,12 @@ model_params:
   in_channels: 1
   latent_dim: 5
   loss_type: 'B'
-  gamma: 100.0
-  beta: 10
-  max_capacity: 5
-  Capacity_max_iter: 4000 #10000
-  hidden_dims: [64, 128, 256, 512]
+  beta: 3
+  gamma: 300.0
+  max_capacity: 6
+  Capacity_max_iter: 2500 #10000
+  hidden_dims: []
+  clf_task_num: 1
 
 data_params:
   data_path: "data/mazes_200k_2corridors_13x13.csv"
@@ -20,16 +21,16 @@ data_params:
   num_workers: 4
   
 exp_params:
-  LR: 0.005
+  LR: 0.0005
   weight_decay: 0.0
-  scheduler_gamma: 0.95
-  kld_weight: 0.00025
-  manual_seed: 0 #1265
+  scheduler_gamma: 0.9
+  kld_weight: 0.0003
+  manual_seed: 1 #1265
 
 trainer_params:
   accelerator: "gpu"
   gpus: [0,1]
-  max_epochs: 5
+  max_epochs: 6
 
 logging_params:
   save_dir: "logs/"
