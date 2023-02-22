@@ -25,13 +25,11 @@ from dataset import MazeDataset
 from models.beta_vae import BetaVAE
 from models.beta_vae_MLP import BetaVAE_MLP
 from models.beta_vae_CLF import BetaVAE_CLF
-from models.beta_vae_light import BetaVAE_light
 
 models = {
     'BetaVAE': BetaVAE, 
     'BetaVAE_MLP': BetaVAE_MLP, 
     'BetaVAE_CLF': BetaVAE_CLF,
-    'BetaVAE_light': BetaVAE_light
 }
 
 def load_model_from_checkpoint(ckp_path, config):

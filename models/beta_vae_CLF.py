@@ -117,7 +117,7 @@ class BetaVAE_CLF(BaseVAE):
                 nn.Linear(512, 169),
                 nn.Softmax(dim=1)
             )
-        elif self.clf_task_num == 1:
+        elif self.clf_task_num == 1 or self.clf_task_num == 2:
             self.clf = nn.Sequential(
                 nn.Linear(latent_dim, 1024),
                 nn.ReLU(),
@@ -243,10 +243,12 @@ class BetaVAE_CLF(BaseVAE):
         #     clf_w = 0
 
         true_labels = self.clf_task(labels)
+        
         if self.clf_task_num == 0:
             clf_loss = 2e-2 * F.cross_entropy(preds, true_labels)
+        
         elif self.clf_task_num == 1 or self.clf_task_num == 2:
-            if self.num_iter < 2000:
+            if self.num_iter < self.C_stop_iter:
                 clf_w = 0
             else:
                 clf_w = 1

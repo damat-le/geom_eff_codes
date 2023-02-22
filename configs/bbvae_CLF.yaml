@@ -6,9 +6,9 @@ model_params:
   beta: 3
   gamma: 300.0
   max_capacity: 6
-  Capacity_max_iter: 2500 #10000
+  Capacity_max_iter: 3000 #10000
   hidden_dims: []
-  clf_task_num: 1
+  clf_task_num: 2
 
 data_params:
   data_path: "data/mazes_200k_2corridors_13x13.csv"
