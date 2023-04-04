@@ -5,10 +5,10 @@ model_params:
   loss_type: 'B'
   beta: 3
   gamma: 300.0
-  max_capacity: 6
+  max_capacity: 10
   Capacity_max_iter: 3000 #10000
   hidden_dims: []
-  clf_task_num: 2
+  clf_task_num: 0
 
 data_params:
   data_path: "data/mazes_200k_2corridors_13x13.csv"
@@ -25,7 +25,7 @@ exp_params:
   weight_decay: 0.0
   scheduler_gamma: 0.9
   kld_weight: 0.0003
-  manual_seed: 1 #1265
+  manual_seed: 0 #1265
 
 trainer_params:
   accelerator: "gpu"

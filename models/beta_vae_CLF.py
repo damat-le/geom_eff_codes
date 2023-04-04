@@ -28,7 +28,7 @@ class BetaVAE_CLF(BaseVAE):
             0 : self.map_label2idx_task0,
             1 : self.map_label2idx_task1,
             2 : self.map_label2idx_task2,
-            # 3 : self.map_label2idx_task3,
+            3 : self.map_label2idx_task3,
         }
 
         self.latent_dim = latent_dim
@@ -106,21 +106,13 @@ class BetaVAE_CLF(BaseVAE):
         # Build Classifier
         if self.clf_task_num == 0:
             self.clf = nn.Sequential(
-                nn.Linear(latent_dim, 512),
-                nn.ReLU(),
-                nn.Dropout(0.2),
-                nn.Linear(512, 4096),
-                nn.ReLU(),
-                nn.Dropout(0.3),
-                nn.Linear(4096, 512),
-                nn.ReLU(),
-                nn.Linear(512, 169),
+                nn.Linear(latent_dim, 1024),
+                nn.Linear(1024, 25),
                 nn.Softmax(dim=1)
             )
-        elif self.clf_task_num == 1 or self.clf_task_num == 2:
+        elif self.clf_task_num in [1, 2, 3]:
             self.clf = nn.Sequential(
                 nn.Linear(latent_dim, 1024),
-                nn.ReLU(),
                 nn.Linear(1024, 1),
                 nn.Sigmoid()
             )
@@ -174,13 +166,36 @@ class BetaVAE_CLF(BaseVAE):
         preds = self.clf(z)
         return preds
     
-    def map_label2idx_task0(self, labels: Tensor) -> Tensor:
-        if len(labels.shape) == 1:
-            return labels[0]*13 + labels[1]
-        else:
-            return labels[:,0]*13 + labels[:,1]
+    # @staticmethod
+    # def get_new_labels_task0(label):
+    #     if label <= 6 or label == 12:
+    #         return label//3
+    #     else:
+    #         return label//3 + 1
+    
+    # def map_label2idx_task0(self, labels: Tensor) -> Tensor:
+    #     device = labels.device
+    #     labels = labels.cpu()
+    #     labels = np.vectorize(self.get_new_labels_task0)(labels)
 
-    def map_label2idx_task1(self, labels: Tensor) -> Tensor:
+    #     if len(labels.shape) == 1:
+    #         res = labels[0]*4 + labels[1]
+    #         return torch.tensor(res, device=device, dtype=torch.long)
+    #     else:
+    #         res = labels[:,0]*4 + labels[:,1]
+    #         return torch.tensor(res, device=device, dtype=torch.long)
+        
+    @staticmethod
+    def map_label2idx_task0(labels: Tensor) -> Tensor:
+        if len(labels.shape) == 1:
+            res = labels[0]//3*4 + labels[1]//3
+            return res
+        else:
+            res = labels[:,0]//3*4 + labels[:,1]//3
+            return res
+
+    @staticmethod
+    def map_label2idx_task1(labels: Tensor) -> Tensor:
         device = labels.device
         labels = labels.cpu()
         if len(labels.shape) == 1:
@@ -190,7 +205,8 @@ class BetaVAE_CLF(BaseVAE):
             res = np.where(labels[:,0]==labels[:,1],1,0).reshape(-1,1)
             return torch.tensor(res, device=device, dtype=torch.float)
 
-    def map_label2idx_task2(self, labels: Tensor) -> Tensor:
+    @staticmethod
+    def map_label2idx_task2(labels: Tensor) -> Tensor:
         device = labels.device
         labels = labels.cpu()
         if len(labels.shape) == 1:
@@ -199,6 +215,17 @@ class BetaVAE_CLF(BaseVAE):
         else:
             res = np.where(labels[:,0]<=labels[:,1],1,0).reshape(-1,1)
             return torch.tensor(res, device=device, dtype=torch.float)
+
+    @staticmethod
+    def map_label2idx_task3(labels: Tensor) -> Tensor:
+        device = labels.device
+        labels = labels.cpu()
+        if len(labels.shape) == 1:
+            condition = (labels[0] < 6) | ((labels[0] >= 6) & (labels[1] >= 6))
+        else:
+            condition = (labels[:,0] < 6) | ((labels[:,0] >= 6) & (labels[:,1] >= 6)) 
+        res = np.where(condition,1,0).reshape(-1,1)
+        return torch.tensor(res, device=device, dtype=torch.float)
 
     def forward(self, input: Tensor, **kwargs) -> Tensor:
         labels = kwargs['labels']
@@ -243,24 +270,27 @@ class BetaVAE_CLF(BaseVAE):
         #     clf_w = 0
 
         true_labels = self.clf_task(labels)
+        clf_w = torch.clamp(torch.tensor([self.num_iter / self.C_stop_iter]).to(self.C_max.device), 0, 1)
+        if self.num_iter < 1500:
+            clf_w = clf_w/4
         
         if self.clf_task_num == 0:
-            clf_loss = 2e-2 * F.cross_entropy(preds, true_labels)
+            clf_loss = clf_w * F.cross_entropy(preds, true_labels)
+            pred_labels = torch.argmax(preds, dim=1)
+            f1 = f1_score(true_labels.cpu(), pred_labels.cpu(), average='macro')
         
-        elif self.clf_task_num == 1 or self.clf_task_num == 2:
-            if self.num_iter < self.C_stop_iter:
-                clf_w = 0
-            else:
-                clf_w = 1
+        elif self.clf_task_num in [1,2,3]:
+            # if self.num_iter < self.C_stop_iter:
+            #     clf_w = 0
+            # else:
+            #     clf_w = 1
             clf_loss = clf_w * F.binary_cross_entropy(preds, true_labels)
-            #clf_loss = clf_w * clf_loss
-    
+            pred_labels =  np.where(preds.cpu()>=.5, 1, 0)
+            f1 = f1_score(true_labels.cpu(), pred_labels)
 
         ##clf_loss = F.cross_entropy(preds, labels.squeeze())
 
         # Compute total loss
-        pred_labels =  np.where(preds.cpu()>=.5, 1, 0)
-        f1 = f1_score(true_labels.cpu(), pred_labels)
         loss = betavae_loss + clf_loss
 
         return {'loss':loss, 'betavae_loss': betavae_loss, 'Reconstruction_Loss':recons_loss, 'KLD':kld_loss, 'clf_loss':clf_loss, 'f1_score': f1}

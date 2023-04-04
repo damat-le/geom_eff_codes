@@ -57,9 +57,11 @@ def load_dataset(config):
     dataset = MazeDataset(imgs, config["data_params"]["num_labels"])
     return dataset
 
-def load_experiment(config_path, ckp_path):
+def load_experiment(config_path, ckp_path, data_path=None):
     config = load_config(config_path)
     model = load_model_from_checkpoint(ckp_path, config)
+    if data_path is not None:
+        config['data_params']['data_path'] = data_path
     dataset = load_dataset(config)
     return dataset, model, config
 
