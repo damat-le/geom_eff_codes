@@ -36,7 +36,11 @@ def load_model_from_checkpoint(ckp_path, config):
     # load pytorch model checkpoint from file
     model_type = config['model_params']['name']
     model = models[model_type](**config['model_params'])
-    state = torch.load(ckp_path)['state_dict']
+    if not torch.cuda.is_available():
+        map_location=torch.device('cpu')
+    else:
+        map_location=None
+    state = torch.load(ckp_path, map_location=map_location)['state_dict']
     # remove 'model.' prefix from state dict keys
     state = {k[6:]: v for k, v in state.items()} 
     model.load_state_dict(state, strict=0) 
