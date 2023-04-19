@@ -4,9 +4,9 @@ model_params:
   latent_dim: 5
   loss_type: 'B'
   beta: 3
-  gamma: 300.0
-  max_capacity: 10
-  Capacity_max_iter: 3000 #10000
+  gamma: 1000.0
+  max_capacity: 0.3
+  Capacity_max_iter: 1000 #10000
   hidden_dims: []
   clf_task_num: 0
 

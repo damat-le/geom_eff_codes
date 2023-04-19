@@ -3,16 +3,16 @@ model_params:
   in_channels: 1
   latent_dim: 5
   loss_type: 'B'
-  gamma: 300.0
+  gamma: 200.0
   beta: 10
-  max_capacity: 10
-  Capacity_max_iter: 2000 #10000
+  max_capacity: 1
+  Capacity_max_iter: 2500 #10000
   hidden_dims: []
 
 data_params:
-  data_path: "data/mazes_85k_2corridors_AlignedBias3000vs300.csv"
+  data_path: "data/mazes_200k_2corridors_13x13.csv"
   num_labels: 2
-  train_val_test_split: [75000, 80000]
+  train_val_test_split: [170_000, 185_000]
   train_batch_size: 64
   val_batch_size:  32
   test_batch_size: 32
@@ -29,7 +29,7 @@ exp_params:
 trainer_params:
   accelerator: "gpu"
   gpus: [0,1]
-  max_epochs: 6
+  max_epochs: 4
 
 logging_params:
   save_dir: "logs/"

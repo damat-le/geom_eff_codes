@@ -27,21 +27,8 @@ class MyDataset(Dataset):
 
 class MazeDataset(Dataset):
 
-    label2idx = {
-        'll': 0,
-        'cl': 1,
-        'rl': 2,
-        'lc': 3,
-        'cc': 4,
-        'rc': 5,
-        'lr': 6,
-        'cr': 7,
-        'rr': 8,
-    }
-
-    img_size = 13
-
-    def __init__(self, data, num_labels=2):
+    def __init__(self, data, num_labels=2, img_size=13):
+        self.img_size = img_size
         self.num_labels = num_labels
         self.imgs = data
         self.transform = Lambda(lambda x: torch.Tensor(x.reshape(*self.get_size(x))))
