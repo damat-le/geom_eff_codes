@@ -23,12 +23,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from dataset import MazeDataset
 from models.beta_vae import BetaVAE
-from models.beta_vae_MLP import BetaVAE_MLP
+#from models.beta_vae_MLP import BetaVAE_MLP
 from models.beta_vae_CLF import BetaVAE_CLF
 
 models = {
     'BetaVAE': BetaVAE, 
-    'BetaVAE_MLP': BetaVAE_MLP, 
+    #'BetaVAE_MLP': BetaVAE_MLP, 
     'BetaVAE_CLF': BetaVAE_CLF,
 }
 
