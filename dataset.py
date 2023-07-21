@@ -11,6 +11,7 @@ from torchvision.datasets import CelebA, MNIST
 import zipfile
 import pandas as pd
 from torchvision.transforms import Lambda
+import numpy as np
 
 
 # Add your custom dataset class here
@@ -48,7 +49,24 @@ class MazeDataset(Dataset):
             return (1, self.img_size, self.img_size)
         else:
             return (batch.shape[0], 1, self.img_size, self.img_size)
-
+    
+    def sample(self, label_up, label_lc, n=1, idx=None):
+        if idx is not None:
+            img = self.imgs[idx:idx+1, :-self.num_labels]
+            label = self.imgs[idx:idx+1, -self.num_labels:]
+            return [idx], img, label
+        if label_up is None:
+            label_up = np.random.randint(0, 13)
+        if label_lc is None:
+            label_lc = np.random.randint(0, 13)
+        condition = (self.imgs[:, -2] == label_up) & (self.imgs[:, -1] == label_lc)
+        idxs = np.where(condition)
+        row_idxs = np.unique(idxs[0])
+        selected_row_idxs = np.random.choice(row_idxs, n)
+        imgs = self.imgs[selected_row_idxs, :-self.num_labels]
+        labels = self.imgs[selected_row_idxs, -self.num_labels:]
+        return selected_row_idxs, imgs, labels
+    
     def _check_integrity(self) -> bool:
         return True
 
