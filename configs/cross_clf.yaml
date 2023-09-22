@@ -1,0 +1,33 @@
+model_params:
+  name: 'LatentClassifier'
+  latent_dim: 5
+  clf_task_num: null  #this is the task to skip because we use its latent representation
+
+data_params:
+  data_path: "data/mazes_200k_2corridors_13x13.csv"
+  num_labels: 2
+  img_size: 5
+  model4latentrepr: 'logs/BetaVAE_CLF_task3/max_c_6/'
+  train_val_test_split: [170000, 185000]
+  train_batch_size: 64
+  val_batch_size:  32
+  test_batch_size: 32
+  patch_size: 32
+  num_workers: 4
+  
+exp_params:
+  LR: 0.0005
+  weight_decay: 0.0
+  scheduler_gamma: 0.9
+  kld_weight: 0.0003
+  manual_seed: 0 #1265
+
+trainer_params:
+  accelerator: "gpu"
+  gpus: [0,1]
+  max_epochs: 6
+
+logging_params:
+  save_dir: "logs/cross_latent_clf"
+  manual_seed: 0 #1265
+  name: 'max_c_6'

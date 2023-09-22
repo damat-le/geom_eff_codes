@@ -288,12 +288,14 @@ class BetaVAE_CLF(BaseVAE):
         #     clf_w = 0
 
         true_labels = self.clf_task(labels)
-        clf_w = torch.clamp(torch.tensor([self.num_iter / self.C_stop_iter]).to(input.device), 0, 1)
-        if self.num_iter < 1500:
-            clf_w = clf_w/4
+        # clf_w = torch.clamp(torch.tensor([self.num_iter / self.C_stop_iter]).to(input.device), 0, 1)
+        clf_w = torch.clamp(torch.tensor([(self.num_iter - self.C_stop_iter) / self.C_stop_iter]).to(input.device), 0, 1)
+
+        # if self.num_iter < 1500:
+        #     clf_w = clf_w/4
         
         if self.clf_task_num == 0:
-            clf_loss = clf_w * F.cross_entropy(preds, true_labels)
+            clf_loss = 10 * clf_w * F.cross_entropy(preds, true_labels)
             pred_labels = torch.argmax(preds, dim=1)
             f1 = f1_score(true_labels.cpu(), pred_labels.cpu(), average='macro')
         

@@ -25,11 +25,13 @@ from dataset import MazeDataset
 from models.beta_vae import BetaVAE
 #from models.beta_vae_MLP import BetaVAE_MLP
 from models.beta_vae_CLF import BetaVAE_CLF
+from models.beta_vae_MultiCLF import BetaVAE_MultiCLF
 
 models = {
     'BetaVAE': BetaVAE, 
     #'BetaVAE_MLP': BetaVAE_MLP, 
     'BetaVAE_CLF': BetaVAE_CLF,
+    'BetaVAE_MultiCLF': BetaVAE_MultiCLF,
 }
 
 def load_model_from_checkpoint(ckp_path, config):
@@ -39,7 +41,7 @@ def load_model_from_checkpoint(ckp_path, config):
     if not torch.cuda.is_available():
         map_location=torch.device('cpu')
     else:
-        map_location=None
+        map_location=torch.device('cuda')
     state = torch.load(ckp_path, map_location=map_location)['state_dict']
     # remove 'model.' prefix from state dict keys
     state = {k[6:]: v for k, v in state.items()} 
