@@ -1,17 +1,11 @@
-from typing import List, Union, Sequence, Optional
-import pytorch_lightning as pl
-from pytorch_lightning import LightningDataModule
-from torch import Tensor
-from torch import optim
-from torch.nn import Module
-from torch.utils.data import DataLoader
-from dataset import MazeDataset
+from __future__ import annotations
 import pandas as pd
 import numpy as np
 import torch
-from dataset import MazeDataset, VAEDataset
-from models.beta_vae_CLF import BetaVAE_CLF
-from experiment import VAEXperiment
+
+from src.datasets import MazeDataset, VAEDataset
+from src.experiments import VAEXperiment
+from src.models import BetaVAE_CLF
 
 
 class MazeDatasetEncoded(MazeDataset):
@@ -28,11 +22,11 @@ class VaeLatentDataset(VAEDataset):
             data_path: str, 
             num_labels: int,
             model4latentrepr: str,
-            train_val_test_split: List[int], 
+            train_val_test_split: list[int], 
             train_batch_size: int = 8, 
             val_batch_size: int = 8, 
             test_batch_size: int = 8, 
-            patch_size: Union[int, Sequence[int]] = (256, 256),
+            patch_size: int | tuple = (256, 256),
             num_workers: int = 0, 
             pin_memory: bool = False, 
             **kwargs
@@ -40,7 +34,7 @@ class VaeLatentDataset(VAEDataset):
         super().__init__(data_path, num_labels, train_val_test_split, train_batch_size, val_batch_size, test_batch_size, patch_size, num_workers, pin_memory, **kwargs)
         self.model4latentrepr = model4latentrepr
     
-    def setup(self, stage: Optional[str] = None) -> None:
+    def setup(self, stage: str | None = None) -> None:
         imgs = pd.read_csv(self.data_dir, header=None).values
         dataset = MazeDataset(imgs, num_labels=self.num_labels)
 
@@ -85,13 +79,17 @@ if __name__ == '__main__':
     import argparse
     import os
     import yaml
-    from pathlib import Path
+    from torch import set_float32_matmul_precision
+    from lightning_fabric.utilities.seed import seed_everything
     from pytorch_lightning import Trainer
     from pytorch_lightning.loggers import TensorBoardLogger
-    from pytorch_lightning.utilities.seed import seed_everything
     from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
-    from pytorch_lightning.plugins import DDPPlugin
-    from models import *
+    from pytorch_lightning.strategies import DDPStrategy
+    
+    from src.models import models
+
+    set_float32_matmul_precision('medium')
+
 
     parser = argparse.ArgumentParser(description='Generic runner for VAE models')
     parser.add_argument('--config',  '-c',
@@ -138,7 +136,7 @@ if __name__ == '__main__':
         True
         )
 
-    model = vae_models[config['model_params']['name']](**config['model_params'])
+    model = models[config['model_params']['name']](**config['model_params'])
 
     experiment = VAEXperiment(
         model,
@@ -147,7 +145,7 @@ if __name__ == '__main__':
 
     data = VaeLatentDataset(
         **config["data_params"], 
-        pin_memory=len(config['trainer_params']['gpus']) != 0
+        pin_memory=len(config['trainer_params']['devices']) != 0
         )
 
     data.setup()
@@ -162,7 +160,7 @@ if __name__ == '__main__':
                 monitor= "val_loss",
                 save_last= True),
             ],
-        strategy=DDPPlugin(find_unused_parameters=False),
+        strategy=DDPStrategy(find_unused_parameters=False),
         **config['trainer_params']
         )
 

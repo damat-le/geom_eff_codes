@@ -1,14 +1,15 @@
 import io
 import imageio
 import os
-import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from torch import optim
-from models import BaseVAE
-from models.types_ import *
 import pytorch_lightning as pl
 import torchvision.utils as vutils
+import torch
+from torch import TensorType as Tensor
+from torch import optim
+
+from src.models import BaseVAE
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -30,7 +31,7 @@ class VAEXperiment(pl.LightningModule):
     def forward(self, input: Tensor, **kwargs) -> Tensor:
         return self.model(input, **kwargs)
 
-    def training_step(self, batch, batch_idx, optimizer_idx = 0):
+    def training_step(self, batch, batch_idx):
         real_img, labels = batch
         self.curr_device = real_img.device
 
@@ -38,13 +39,12 @@ class VAEXperiment(pl.LightningModule):
         train_loss = self.model.loss_function(
             *results,
             M_N = self.params['kld_weight'], #al_img.shape[0]/ self.num_train_imgs,
-            optimizer_idx=optimizer_idx,
             batch_idx = batch_idx
             )
         self.log_dict({key: val.item() for key, val in train_loss.items()}, sync_dist=True)
         return train_loss['loss']
 
-    def validation_step(self, batch, batch_idx, optimizer_idx = 0):
+    def validation_step(self, batch, batch_idx):
         real_img, labels = batch
         self.curr_device = real_img.device
 
@@ -52,7 +52,6 @@ class VAEXperiment(pl.LightningModule):
         val_loss = self.model.loss_function(
             *results,
             M_N = 1.0, #real_img.shape[0]/ self.num_val_imgs,
-            optimizer_idx = optimizer_idx,
             batch_idx = batch_idx
             )
         self.log_dict({f"val_{key}": val.item() for key, val in val_loss.items()}, sync_dist=True)

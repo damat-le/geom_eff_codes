@@ -1,29 +1,37 @@
 from __future__ import annotations
-from copy import deepcopy
+
 import numpy as np
 import torch
-from sklearn.metrics import f1_score
-from models.base import BaseVAE
+from torch import TensorType as Tensor
 from torch import nn
 from torch.nn import functional as F
-from .types_ import *
+from sklearn.metrics import f1_score
+from src.models import BaseVAE
 
 
-class BetaVAE_MultiCLF(BaseVAE):
+class BetaVAE_CLF(BaseVAE):
 
     num_iter = 0 # Global static variable to keep track of iterations
 
     def __init__(self,
                  in_channels: int,
                  latent_dim: int,
+                 hidden_dims: list = None,
                  beta: int = 4,
                  gamma:float = 1000.,
                  max_capacity: int = 25,
                  Capacity_max_iter: int = 1e5,
                  loss_type:str = 'B',
-                 task_list: List = [1,2,3],
+                 clf_task_num:int = 0,
                  **kwargs) -> None:
-        super(BetaVAE_MultiCLF, self).__init__()
+        super(BetaVAE_CLF, self).__init__()
+
+        clf_tasks_dict = {
+            0 : self.map_label2idx_task0,
+            1 : self.map_label2idx_task1,
+            2 : self.map_label2idx_task2,
+            3 : self.map_label2idx_task3,
+        }
 
         self.latent_dim = latent_dim
         self.beta = beta
@@ -31,7 +39,8 @@ class BetaVAE_MultiCLF(BaseVAE):
         self.loss_type = loss_type
         self.C_max = torch.Tensor([max_capacity])
         self.C_stop_iter = Capacity_max_iter
-        self.task_list = [str(task) for task in task_list]
+        self.clf_task_num = clf_task_num
+        self.clf_task = clf_tasks_dict[clf_task_num]
 
         self.encoder = nn.Sequential(
             nn.Conv2d(
@@ -96,56 +105,23 @@ class BetaVAE_MultiCLF(BaseVAE):
         )
         
 
-        # Build Classifiers
-        # self.nonLinear_clf = nn.Sequential(
-        #     nn.Linear(latent_dim, 1500),
-        #     nn.LeakyReLU(negative_slope=0.2),
-        #     nn.Dropout(0.25),
-        #     nn.Linear(1500, 25),
-        #     nn.Softmax(dim=1)
-        # )
-        # self.linear_clf = nn.Sequential(
-        #     nn.Linear(latent_dim, 1024),
-        #     nn.Linear(1024, 1),
-        #     nn.Sigmoid()
-        # )
+        # Build Classifier
+        if self.clf_task_num == 0:
+            self.clf = nn.Sequential(
+                nn.Linear(latent_dim, 1500),
+                nn.LeakyReLU(negative_slope=0.2),
+                nn.Dropout(0.25),
+                nn.Linear(1500, 25),
+                nn.Softmax(dim=1)
+            )
+        elif self.clf_task_num in [1, 2, 3]:
+            self.clf = nn.Sequential(
+                nn.Linear(latent_dim, 1024),
+                nn.Linear(1024, 1),
+                nn.Sigmoid()
+            )
 
-        self.clf_dict = nn.ModuleDict()
-
-        for task in self.task_list:
-            if task=="0":
-                self.clf_dict[task] = nn.Sequential(
-                    nn.Linear(latent_dim, 1500),
-                    nn.LeakyReLU(negative_slope=0.2),
-                    nn.Dropout(0.25),
-                    nn.Linear(1500, 25),
-                    nn.Softmax(dim=1)
-                )
-            elif task=="4":
-                self.clf_dict[task] = nn.Sequential(
-                    nn.Linear(latent_dim, 2500),
-                    nn.LeakyReLU(negative_slope=0.2),
-                    nn.Dropout(0.25),
-                    nn.Linear(2500, 169),
-                    nn.Softmax(dim=1)
-                )
-            else:
-                self.clf_dict[task] = nn.Sequential(
-                    nn.Linear(latent_dim, 1024),
-                    nn.Linear(1024, 1),
-                    nn.Sigmoid()
-                )
-
-
-        self.clf_labelMap_dict = {
-            "0" : self.map_label2idx_task0,
-            "1" : self.map_label2idx_task1,
-            "2" : self.map_label2idx_task2,
-            "3" : self.map_label2idx_task3,
-            "4" : self.map_label2idx_task4,
-        }
-
-    def encode(self, input: Tensor) -> List[Tensor]:
+    def encode(self, input: Tensor) -> list[Tensor]:
         """
         Encodes the input by passing through the encoder network
         and returns the latent codes.
@@ -191,10 +167,7 @@ class BetaVAE_MultiCLF(BaseVAE):
         return eps * std + mu
 
     def classify(self, z: Tensor) -> Tensor:
-        preds = dict()
-        for task in self.task_list:
-            #print(f'classifier device task {task}', self.clf_dict[task]())
-            preds[task] = self.clf_dict[task](z)
+        preds = self.clf(z)
         return preds
     
     # @staticmethod
@@ -274,16 +247,6 @@ class BetaVAE_MultiCLF(BaseVAE):
         res = np.where(condition,1,0).reshape(-1,1)
         return torch.tensor(res, device=device, dtype=torch.float)
 
-    def map_label2idx_task4(self, labels: Tensor) -> Tensor:
-        device = labels.device
-        labels = labels.cpu()
-        if len(labels.shape) == 1:
-            res = labels[0]*13 + labels[1]
-            return torch.tensor(res, device=device, dtype=torch.long)
-        else:
-            res = labels[:,0]*13 + labels[:,1]
-            return torch.tensor(res, device=device, dtype=torch.long)
-
     def forward(self, input: Tensor, **kwargs) -> Tensor:
         labels = kwargs['labels']
         mu, log_var = self.encode(input)
@@ -326,38 +289,33 @@ class BetaVAE_MultiCLF(BaseVAE):
         # else:
         #     clf_w = 0
 
+        true_labels = self.clf_task(labels)
+        # clf_w = torch.clamp(torch.tensor([self.num_iter / self.C_stop_iter]).to(input.device), 0, 1)
         clf_w = torch.clamp(torch.tensor([(self.num_iter - self.C_stop_iter) / self.C_stop_iter]).to(input.device), 0, 1)
-        #clf_w = torch.clamp(torch.tensor([self.num_iter / self.C_stop_iter]).to(input.device), 0, 1)
+
         # if self.num_iter < 1500:
         #     clf_w = clf_w/4
         
-        clf_loss_dict = dict()
-        for task in self.task_list:
-            true_labels = self.clf_labelMap_dict[task](labels)
-            if (task == "0") or (task=="4"):
-                clf_loss = 10 * clf_w * F.cross_entropy(preds[task], true_labels)
-                pred_labels = torch.argmax(preds[task], dim=1)
-                f1 = f1_score(true_labels.cpu(), pred_labels.cpu(), average='macro')
-            else:
-                clf_loss = clf_w * F.binary_cross_entropy(preds[task], true_labels)
-                pred_labels =  np.where(preds[task].cpu()>=.5, 1, 0)
-                f1 = f1_score(true_labels.cpu(), pred_labels)
-            
-            clf_loss_dict[f'clf_loss_{task}'] = clf_loss
-            clf_loss_dict[f'f1_{task}'] = f1
+        if self.clf_task_num == 0:
+            clf_loss = 10 * clf_w * F.cross_entropy(preds, true_labels)
+            pred_labels = torch.argmax(preds, dim=1)
+            f1 = f1_score(true_labels.cpu(), pred_labels.cpu(), average='macro')
+        
+        elif self.clf_task_num in [1,2,3]:
+            # if self.num_iter < self.C_stop_iter:
+            #     clf_w = 0
+            # else:
+            #     clf_w = 1
+            clf_loss = clf_w * F.binary_cross_entropy(preds, true_labels)
+            pred_labels =  np.where(preds.cpu()>=.5, 1, 0)
+            f1 = f1_score(true_labels.cpu(), pred_labels)
 
         ##clf_loss = F.cross_entropy(preds, labels.squeeze())
 
         # Compute total loss
-        clf_loss_all = 0
-        for task in self.task_list:
-            clf_loss = clf_loss_dict[f'clf_loss_{task}']
-            clf_loss_all = clf_loss_all + clf_loss
-        #clf_loss_all = clf_loss_all/len(self.task_list)
+        loss = betavae_loss + clf_loss
 
-        loss = betavae_loss + clf_loss_all
-
-        return {'loss':loss, 'betavae_loss': betavae_loss, 'rec_loss':recons_loss, 'KLD':kld_loss, **clf_loss_dict}
+        return {'loss':loss, 'betavae_loss': betavae_loss, 'Reconstruction_Loss':recons_loss, 'KLD':kld_loss, 'clf_loss':clf_loss, 'f1_score': f1}
 
     def sample(self,
                num_samples:int,

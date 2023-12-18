@@ -1,18 +1,20 @@
+from __future__ import annotations
 import os
 import yaml
 import argparse
-import numpy as np
 from pathlib import Path
-from models import *
-from experiment import VAEXperiment
-import torch.backends.cudnn as cudnn
+from torch import set_float32_matmul_precision
 from pytorch_lightning import Trainer
+from pytorch_lightning.strategies import DDPStrategy
 from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.utilities.seed import seed_everything
+from lightning_fabric.utilities.seed import seed_everything
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
-from dataset import VAEDataset
-from pytorch_lightning.plugins import DDPPlugin
 
+from src.models import models
+from src.datasets import VAEDataset
+from src.experiments import VAEXperiment
+
+set_float32_matmul_precision('medium')
 
 parser = argparse.ArgumentParser(description='Generic runner for VAE models')
 parser.add_argument('--config',  '-c',
@@ -41,7 +43,7 @@ seed_everything(
     True
     )
 
-model = vae_models[config['model_params']['name']](**config['model_params'])
+model = models[config['model_params']['name']](**config['model_params'])
 
 experiment = VAEXperiment(
     model,
@@ -50,7 +52,7 @@ experiment = VAEXperiment(
 
 data = VAEDataset(
     **config["data_params"], 
-    pin_memory=len(config['trainer_params']['gpus']) != 0
+    pin_memory=len(config['trainer_params']['devices']) != 0
     )
 
 data.setup()
@@ -65,7 +67,7 @@ runner = Trainer(
             monitor= "val_loss",
             save_last= True),
         ],
-    strategy=DDPPlugin(find_unused_parameters=False),
+    strategy=DDPStrategy(find_unused_parameters=False),
     **config['trainer_params']
     )
 

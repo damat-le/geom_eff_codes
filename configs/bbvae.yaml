@@ -10,7 +10,7 @@ model_params:
   hidden_dims: []
 
 data_params:
-  data_path: "data/mazes_85k_2corridors_AlignedBias3000vs300.csv"
+  data_path: "data/mazes_200k_2corridors_13x13.csv"
   num_labels: 2
   train_val_test_split: [75_000, 82_000]
   train_batch_size: 64
@@ -28,7 +28,7 @@ exp_params:
 
 trainer_params:
   accelerator: "gpu"
-  gpus: [0,1]
+  devices: [0]
   max_epochs: 6
 
 logging_params:

@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import torch
 import numpy as np
 from torch import nn
-from torch import Tensor
+from torch import TensorType as Tensor
 from sklearn.metrics import f1_score
 
 class LatentClassifier(nn.Module):

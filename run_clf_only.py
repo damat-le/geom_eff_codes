@@ -1,13 +1,12 @@
-from typing import List, Union, Sequence, Optional
-import pytorch_lightning as pl
-from pytorch_lightning import LightningDataModule
-from torch import Tensor
+from __future__ import annotations
+import pandas as pd
 from torch import optim
 from torch.nn import Module
+from torch import TensorType as Tensor
 from torch.utils.data import DataLoader
-from dataset import MazeDataset
-import pandas as pd
-import numpy as np
+from pytorch_lightning import LightningModule, LightningDataModule
+
+from src.datasets import MazeDataset
 
 class MazeDatasetEncoded(MazeDataset):
 
@@ -37,11 +36,11 @@ class VAEDataset(LightningDataModule):
         data_path: str,
         num_labels: int, # l'ho inserito io
         img_size: int,
-        train_val_test_split: List[int], #l'ho inserito io
+        train_val_test_split: list[int], #l'ho inserito io
         train_batch_size: int = 8,
         val_batch_size: int = 8,
         test_batch_size: int = 8,
-        patch_size: Union[int, Sequence[int]] = (256, 256),
+        patch_size: int | tuple = (256, 256),
         num_workers: int = 0,
         pin_memory: bool = False,
         **kwargs,
@@ -59,7 +58,7 @@ class VAEDataset(LightningDataModule):
         self.num_workers = num_workers
         self.pin_memory = pin_memory
 
-    def setup(self, stage: Optional[str] = None) -> None:
+    def setup(self, stage: str | None = None) -> None:
 
         imgs = pd.read_csv(self.data_dir, header=None).values
         
@@ -80,7 +79,7 @@ class VAEDataset(LightningDataModule):
             #collate_fn=lambda data: tuple(data)
         )
 
-    def val_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
+    def val_dataloader(self) -> DataLoader | list[DataLoader]:
         return DataLoader(
             self.val_dataset,
             batch_size=self.val_batch_size,
@@ -90,7 +89,7 @@ class VAEDataset(LightningDataModule):
             #collate_fn=lambda data: tuple(data)
         )
     
-    def test_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
+    def test_dataloader(self) -> DataLoader | list[DataLoader]:
         return DataLoader(
             self.test_dataset,
             batch_size=self.test_batch_size,
@@ -100,7 +99,7 @@ class VAEDataset(LightningDataModule):
             #collate_fn=lambda data: tuple(data)
         )
      
-class VAEXperiment(pl.LightningModule):
+class VAEXperiment(LightningModule):
 
     def __init__(self, vae_model: Module, params: dict) -> None:
         super(VAEXperiment, self).__init__()
@@ -116,27 +115,25 @@ class VAEXperiment(pl.LightningModule):
     def forward(self, input: Tensor, **kwargs) -> Tensor:
         return self.model(input, **kwargs)
 
-    def training_step(self, batch, batch_idx, optimizer_idx = 0):
+    def training_step(self, batch, batch_idx):
         real_img, labels = batch
         self.curr_device = real_img.device
 
         results = self.forward(real_img, labels = labels)
         train_loss = self.model.loss_function(
             *results,
-            optimizer_idx=optimizer_idx,
             batch_idx = batch_idx
             )
         self.log_dict({key: val.item() for key, val in train_loss.items()}, sync_dist=True)
         return train_loss['loss']
 
-    def validation_step(self, batch, batch_idx, optimizer_idx = 0):
+    def validation_step(self, batch, batch_idx):
         real_img, labels = batch
         self.curr_device = real_img.device
 
         results = self.forward(real_img, labels = labels)
         val_loss = self.model.loss_function(
             *results,
-            optimizer_idx = optimizer_idx,
             batch_idx = batch_idx
             )
         self.log_dict({f"val_{key}": val.item() for key, val in val_loss.items()}, sync_dist=True)
@@ -190,12 +187,17 @@ if __name__ == '__main__':
     import os
     import yaml
     from pathlib import Path
+    from torch import set_float32_matmul_precision
     from pytorch_lightning import Trainer
     from pytorch_lightning.loggers import TensorBoardLogger
     from pytorch_lightning.utilities.seed import seed_everything
     from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
-    from pytorch_lightning.plugins import DDPPlugin
-    from models import *
+    from pytorch_lightning.strategies import DDPStrategy
+    
+    from src.models import models
+
+    set_float32_matmul_precision('medium')
+
 
     parser = argparse.ArgumentParser(description='Generic runner for VAE models')
     parser.add_argument('--config',  '-c',
@@ -224,7 +226,7 @@ if __name__ == '__main__':
         True
         )
 
-    model = vae_models[config['model_params']['name']](**config['model_params'])
+    model = models[config['model_params']['name']](**config['model_params'])
 
     experiment = VAEXperiment(
         model,
@@ -233,7 +235,7 @@ if __name__ == '__main__':
 
     data = VAEDataset(
         **config["data_params"], 
-        pin_memory=len(config['trainer_params']['gpus']) != 0
+        pin_memory=len(config['trainer_params']['devices']) != 0
         )
 
     data.setup()
@@ -248,7 +250,7 @@ if __name__ == '__main__':
                 monitor= "val_loss",
                 save_last= True),
             ],
-        strategy=DDPPlugin(find_unused_parameters=False),
+        strategy=DDPStrategy(find_unused_parameters=False),
         **config['trainer_params']
         )
 
