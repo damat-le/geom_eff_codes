@@ -1,4 +1,4 @@
-# Rate Distortion Theory and $\beta$-VAE
+# The geometry of efficient codes
 
 This is the codebase for the paper "The geometry of efficient codes: how rate-distortion trade-offs distort the latent representations of generative models".
 
