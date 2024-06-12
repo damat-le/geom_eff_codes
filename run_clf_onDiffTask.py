@@ -3,8 +3,8 @@ import pandas as pd
 import numpy as np
 import torch
 
-from src.datasets import MazeDataset, VAEDataset
-from src.experiments import VAEXperiment
+from src.datasets import MazeDataset, MazeDataModule
+from src.experiments import MazeExperiment
 from src.models import BetaVAE_CLF
 
 
@@ -16,7 +16,7 @@ class MazeDatasetEncoded(MazeDataset):
         else:
             return (batch.shape[0], self.img_size)
 
-class VaeLatentDataset(VAEDataset):
+class VaeLatentDataset(MazeDataModule):
     def __init__(
             self, 
             data_path: str, 
@@ -71,7 +71,7 @@ class VaeLatentDataset(VAEDataset):
         self.val_dataset = MazeDatasetEncoded(latent_data[idx1:idx2], num_labels=self.num_labels, img_size=Z.shape[1])
         self.test_dataset = MazeDatasetEncoded(latent_data[idx2:], num_labels=self.num_labels, img_size=Z.shape[1])
 
-class VAEXperiment(VAEXperiment):
+class MazeExperiment(MazeExperiment):
     def on_validation_end(self) -> None:
         pass
 
@@ -138,7 +138,7 @@ if __name__ == '__main__':
 
     model = models[config['model_params']['name']](**config['model_params'])
 
-    experiment = VAEXperiment(
+    experiment = MazeExperiment(
         model,
         config['exp_params']
         )

@@ -1,1 +1,1 @@
-from .dataset import VAEDataset
+from .dataset import MazeDataset, MazeDataModule

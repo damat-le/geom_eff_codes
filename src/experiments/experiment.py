@@ -15,10 +15,10 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-class VAEXperiment(pl.LightningModule):
+class MazeExperiment(pl.LightningModule):
 
     def __init__(self, vae_model: BaseVAE, params: dict) -> None:
-        super(VAEXperiment, self).__init__()
+        super(MazeExperiment, self).__init__()
         self.model = vae_model
         self.params = params
         self.curr_device = None

@@ -11,8 +11,8 @@ from lightning_fabric.utilities.seed import seed_everything
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
 from src.models import models
-from src.datasets import VAEDataset
-from src.experiments import VAEXperiment
+from src.datasets import MazeDataModule
+from src.experiments import MazeExperiment
 
 set_float32_matmul_precision('medium')
 
@@ -45,12 +45,12 @@ seed_everything(
 
 model = models[config['model_params']['name']](**config['model_params'])
 
-experiment = VAEXperiment(
+experiment = MazeExperiment(
     model,
     config['exp_params']
     )
 
-data = VAEDataset(
+data = MazeDataModule(
     **config["data_params"], 
     pin_memory=len(config['trainer_params']['devices']) != 0
     )

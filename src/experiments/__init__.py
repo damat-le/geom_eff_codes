@@ -1,1 +1,1 @@
-from .experiment import VAEXperiment
+from .experiment import MazeExperiment

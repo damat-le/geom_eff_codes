@@ -64,7 +64,7 @@ class MazeDataset(Dataset):
         return True
 
 
-class VAEDataset(LightningDataModule):
+class MazeDataModule(LightningDataModule):
     """
     PyTorch Lightning data module 
 

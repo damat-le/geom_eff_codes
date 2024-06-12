@@ -16,7 +16,7 @@ class MazeDatasetEncoded(MazeDataset):
         else:
             return (batch.shape[0], self.img_size)
 
-class VAEDataset(LightningDataModule):
+class MazeDataModule(LightningDataModule):
     """
     PyTorch Lightning data module 
 
@@ -99,10 +99,10 @@ class VAEDataset(LightningDataModule):
             #collate_fn=lambda data: tuple(data)
         )
      
-class VAEXperiment(LightningModule):
+class MazeExperiment(LightningModule):
 
     def __init__(self, vae_model: Module, params: dict) -> None:
-        super(VAEXperiment, self).__init__()
+        super(MazeExperiment, self).__init__()
         self.model = vae_model
         self.params = params
         self.curr_device = None
@@ -228,12 +228,12 @@ if __name__ == '__main__':
 
     model = models[config['model_params']['name']](**config['model_params'])
 
-    experiment = VAEXperiment(
+    experiment = MazeExperiment(
         model,
         config['exp_params']
         )
 
-    data = VAEDataset(
+    data = MazeDataModule(
         **config["data_params"], 
         pin_memory=len(config['trainer_params']['devices']) != 0
         )

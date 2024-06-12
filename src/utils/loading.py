@@ -30,6 +30,7 @@ def load_config(config_path):
 
 def load_dataset(config):
     path2imgs = config['data_params']['data_path']
+    #path2imgs = '../' + path2imgs
     imgs = pd.read_csv(path2imgs, header=None).values
     dataset = MazeDataset(imgs, config["data_params"]["num_labels"])
     return dataset
