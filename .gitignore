@@ -3,3 +3,6 @@ data/
 __pycache__/
 tmp/
 imgs/
+notebooks/processed/3D_latent_results.pkl
+notebooks/out_processing_3D.ipynb
+misc
