@@ -1,8 +1,8 @@
-# The geometry of efficient codes
+# The Geometry of Efficient Codes
 
 This repository contains the code for the paper **"The geometry of efficient codes: how rate-distortion trade-offs distort the latent representations of generative models."** 
 
-Datasets and models' checkpoints: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14844111.svg)](https://doi.org/10.5281/zenodo.14844111)
+- Datasets and models' checkpoints: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14844111.svg)](https://doi.org/10.5281/zenodo.14844111)
 
 ## Overview
 
