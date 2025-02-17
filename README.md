@@ -34,11 +34,13 @@ geom_eff_codes
 
 ## Installation
 
-Ensure you have Python 3.8+ installed. Then, install the required dependencies:
+Ensure you have Python 3.10+ installed. Then, in a new virtual environment, install the required dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
+
+Note: the Python version used in the experiments is `3.10.12`.
 
 ## Usage
 
@@ -85,12 +87,12 @@ The **Corridors dataset** (`mazes_200k_2corridors_13x13.csv`) consists of 13×13
 
 1. **Effect of Data Distributions:**
    - Training the model on balanced vs. unbalanced datasets to observe specialization effects.
-   - Training data: `mazes_100k_2corridors_BottomBiasL1000R100.csv`, `mazes_85k_2corridors_AlignedBias3000vs300.csv`
+   - Training datasets: `mazes_100k_2corridors_BottomBiasL1000R100.csv`, `mazes_85k_2corridors_AlignedBias3000vs300.csv`
 2. **Effect of Classification Tasks:**
-   - Adding classification objectives to the β-VAE to examine orthogonalization and specialization.
-   - Training data: `data/mazes_200k_2corridors_13x13.csv` (the model auto-adjusts the labels according to the task)
+   - Adding classification objectives to the β-VAE to examine orthogonalization.
+   - Training datasets: `data/mazes_200k_2corridors_13x13.csv` (the model auto-adjusts the labels according to the task)
 3. **Effect of Encoding Capacity:**
-   - Studying how low vs. high capacity influences representational distortions.
+   - Comparing how low vs. high capacity training regimes to examine prototypization.
 
 
 ## Results
@@ -101,7 +103,7 @@ The study found that varying capacity, data distributions, and classification ta
 - **Unbalanced datasets result in specialized encoding, focusing on frequent stimuli.**
 - **Classification tasks encourage orthogonalization of latent representations.**
 
-These findings contribute to understanding how neural and artificial systems compress information efficiently under constraints.
+These findings contribute to understanding how generative models compress information efficiently under capacity constraints.
 
 ## Citation
 
