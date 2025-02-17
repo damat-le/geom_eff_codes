@@ -2,6 +2,8 @@
 
 This repository contains the code for the paper **"The geometry of efficient codes: how rate-distortion trade-offs distort the latent representations of generative models."** 
 
+Datasets and models' checkpoints: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.14844111.svg)](https://doi.org/10.5281/zenodo.14844111)
+
 ## Overview
 
 The study investigates how constraints on capacity, data distributions, and tasks influence the geometry of latent representations in generative models based on rate-distortion theory.
